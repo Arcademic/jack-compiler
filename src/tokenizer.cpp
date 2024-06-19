@@ -18,12 +18,13 @@ public:
     Tokenizer(string path)
     {
         input_file.open(path);
+        pos = 0;
+        tokenize();
     }
 
-    stringstream tokenize()
+    void tokenize()
     {
         bool is_multi_line_comment = false;
-        stringstream tokens;
         string line;
         while (getline(input_file, line))
         {
@@ -71,15 +72,36 @@ public:
             stringstream line_stream(line);
             while (line_stream >> value)
             {
-                tokens << value << '\n';
+                tokens.push_back(value);
             }
         }
-        tokens << flush;
-        return tokens;
+    }
+
+    string advance() {
+        if (pos < tokens.size()) {
+            return tokens[pos++];
+        } else {
+            throw runtime_error("No more tokens available.");
+        }
+    }
+
+    string look_ahead(int i) {
+        if (pos+i < tokens.size()) {
+            return tokens[pos+i];
+        } else {
+            throw runtime_error("Out of range.");
+        }
+    }
+
+    string peek() {
+        look_ahead(0);
     }
 
 private:
     ifstream input_file;
+    vector<string> tokens;
+    long unsigned int pos;
+
 };
 
 #endif // TOKENIZER_CPP
