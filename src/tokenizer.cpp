@@ -94,7 +94,7 @@ public:
     }
 
     string peek() {
-        look_ahead(0);
+        return look_ahead(0);
     }
 
 private:
