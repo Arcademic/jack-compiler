@@ -26,7 +26,8 @@ int main(int argc, char *argv[])
                 cout << "Found valid file: " << entry.path().filename() << '\n';
 
                 Tokenizer t(entry.path());
-                Parser p(t.tokenize());
+                Parser p(t);
+                cout << p.parse() << endl;
             }
             cout << "Done." << '\n';
         }
@@ -34,7 +35,8 @@ int main(int argc, char *argv[])
         cout << "Input is a single file: " << path.filename() << '\n';
 
         Tokenizer t(path);
-        Parser p(t.tokenize());
+        Parser p(t);
+        cout << p.parse() << endl;
 
         cout << "Done." << '\n';
     } else {
