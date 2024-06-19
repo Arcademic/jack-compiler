@@ -14,6 +14,7 @@ class Parser
 {
 public:
     Parser(Tokenizer& t) {
+        this->t = &t;
         parse();
     }
 
@@ -28,39 +29,34 @@ public:
     }
 
 private:
-    stringstream tokens;
-    string token;
+    Tokenizer* t;
     string indent;
+    string token;
 
     stringstream output;
-
-    void advance() {
-        tokens >> token;
-    }
 
     void parse_class() {
         inc_indent();
 
-        advance();
-        assert(token == "class");
-        output << indent << "<keyword> " << token << " </keyword>\n";
+        assert(t->peek() == "class");
+        output << indent << "<keyword> " << t->peek() << " </keyword>\n";
+        t->advance();
 
         parse_identifier();
 
-        advance();
-        assert(token == "{");
-        output << indent << "<symbol> " << token << " </symbol>\n";
-
-        advance();
-        tokens.putback(token[0]);
+        assert(t->peek() == "{");
+        output << indent << "<symbol> " << t->peek() << " </symbol>\n";
+        t->advance();
         
-        parse_class_var_dec();
+        while (t->peek() == "static" || t->peek() == "field") {
+            parse_class_var_dec();
+        }
 
         parse_subroutine_dec();
 
-        advance();
-        assert(token == "}");
-        output << indent << "<symbol> " << token << " </symbol>\n";
+        assert(t->peek() == "}");
+        output << indent << "<symbol> " << t->peek() << " </symbol>\n";
+        t->advance();
 
         dec_indent();
     }
@@ -69,9 +65,9 @@ private:
         output << indent << "<classVarDec>\n";
         inc_indent();
 
-        advance();
-        assert(token == "static" || token == "field");
-        output << indent << "<keyword> " << token << " </keyword>\n";
+        assert(t->peek() == "static" || t->peek() == "field");
+        output << indent << "<keyword> " << t->peek() << " </keyword>\n";
+        t->advance();
 
         dec_indent();
         output << indent << "</classVarDec>\n";
@@ -80,17 +76,26 @@ private:
     void parse_subroutine_dec() {
         inc_indent();
 
-        advance();
-        assert(token == "constructor" || token == "function" || token == "method");
-        output << indent << "<keyword> " << token << " </keyword>\n";
+        assert(t->peek() == "constructor" || t->peek() == "function" || t->peek() == "method");
+        output << indent << "<keyword> " << t->peek() << " </keyword>\n";
+        t->advance();
 
         dec_indent();
     }
 
     void parse_identifier() {
-        advance();
-        assert(regex_match(token, IDENTIFIER));
-        output << indent << "<identifier> " << token << " </identifier>\n";
+        assert(regex_match(t->peek(), IDENTIFIER));
+        output << indent << "<identifier> " << t->peek() << " </identifier>\n";
+        t->advance();
+    }
+
+    void parse_type() {
+        if (t->peek() == "int" || t->peek() == "char" || t->peek() == "boolean") {
+            output << indent << "<keyword> " << t->peek() << " </keyword>\n";
+            t->advance();
+        } else {
+            parse_identifier();
+        }
     }
 
     void inc_indent() {
