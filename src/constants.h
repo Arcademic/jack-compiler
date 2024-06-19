@@ -4,6 +4,7 @@
 #include <string>
 #include <list>
 #include <unordered_map>
+#include <regex>
 
 using namespace std;
 
@@ -65,5 +66,7 @@ static const unordered_map<char, string> XML_SYMBOLS = {
     {'"', "&quot;"},
     {'&', "&amp;"},
 };
+
+static const regex IDENTIFIER("[a-zA-Z_][a-zA-Z0-9_]*");
 
 #endif // CONSTANTS_H
