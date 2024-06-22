@@ -60,13 +60,23 @@ static const list<string> KEYWORDS = {
     "return"
 };
 
-static const unordered_map<char, string> XML_SYMBOLS = {
-    {'<', "&lt;"},
-    {'>', "&gt;"},
-    {'"', "&quot;"},
-    {'&', "&amp;"},
+static const unordered_map<string, string> XML_SYMBOLS = {
+    {"<", "&lt;"},
+    {">", "&gt;"},
+    {"\"", "&quot;"},
+    {"&", "&amp;"},
 };
 
 static const regex IDENTIFIER("[a-zA-Z_][a-zA-Z0-9_]*");
+
+static const regex OP("(\\+|-|\\*|/|\\&|\\||<|>|=)");
+
+static const regex UNARY_OP("(-|~)");
+
+static const regex INTEGER_CONSTANT("\\d{1,5}");
+
+static const regex STRING_CONSTANT("[^\"\n]+");
+
+static const regex KEYWORD_CONSTANT("(true|false|null|this)");
 
 #endif // CONSTANTS_H
