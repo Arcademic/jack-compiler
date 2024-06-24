@@ -363,7 +363,31 @@ private:
             assert(t->peek() == "\"");
             write_xml("stringConstant");
         } else if (regex_match(t->peek(), KEYWORD_CONSTANT)) {
-            
+            write_xml("keyword");
+        } else if (regex_match(t->peek(), UNARY_OP)) {
+            write_xml("symbol");
+        } else if (t->peek() == "(") {
+            assert(t->peek() == "(");
+
+            parse_expression();
+
+            assert(t->peek() == ")s");
+        } else {
+            if (t->look_ahead(1) == "(" || t->look_ahead(1) == ".") {
+                parse_subroutine_call();
+            } else {
+                parse_identifier();
+
+                if (t->peek() == "[") {
+                    assert(t->peek() == "[");
+                    write_xml("symbol");
+
+                    parse_expression();
+
+                    assert(t->peek() == "]");
+                    write_xml("symbol");
+                }
+            }
         }
 
 
