@@ -97,10 +97,19 @@ public:
         return look_ahead(0);
     }
 
+    void save_state() {
+        save_state_pos = pos;
+    }
+
+    void restore_state() {
+        pos = save_state_pos;
+    }
+
 private:
     ifstream input_file;
     vector<string> tokens;
     long unsigned int pos;
+    long unsigned int save_state_pos;
 
 };
 
