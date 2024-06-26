@@ -3,7 +3,7 @@ CXXFLAGS = -Wall -g -std=c++17
 SRCDIR = src/
 BINDIR = target/
 MAIN = $(BINDIR)jackc
-SRCS = $(SRCDIR)main.cpp $(SRCDIR)tokenizer.cpp
+SRCS = $(SRCDIR)main.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 .PHONY: clean all
