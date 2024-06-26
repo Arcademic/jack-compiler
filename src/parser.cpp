@@ -15,40 +15,43 @@ class Parser
 public:
     Parser(Tokenizer& t) {
         this->t = &t;
-        parse();
     }
 
     string parse() {
         indent = "";
-        parse_class();
+        writing_enabled = true;
+        bool parse_error = !parse_class();
         output << flush;
 
+        if (parse_error) {
+            cout << "Parse error." << endl;
+        }
         return output.str();
     }
 
 private:
     Tokenizer* t;
     string indent;
-    string token;
+    bool writing_enabled;
 
     stringstream output;
 
-    void parse_class() {
+    bool parse_class() {
         open_xml_tag("class");
 
-        assert(t->peek() == "class");
+        if (t->peek() != "class") return false;
         write_xml("keyword");
 
-        parse_identifier();
+        if (!parse_identifier()) return false;
 
-        assert(t->peek() == "{");
+        if (t->peek() != "{") return false;
         write_xml("symbol");
         
         while (
             t->peek() == "static" ||
             t->peek() == "field")
         {
-            parse_class_var_dec();
+            if (!parse_class_var_dec()) return false;
         }
 
         while (
@@ -56,110 +59,121 @@ private:
             t->peek() == "function" ||
             t->peek() == "method")
         {
-            parse_subroutine_dec();
+            if (!parse_subroutine_dec()) return false;
         }
 
-        assert(t->peek() == "}");
+        if (t->peek() != "}") return false;
         write_xml("symbol");
 
         close_xml_tag("class");
+        return true;
     }
 
-    void parse_class_var_dec() {
+    bool parse_class_var_dec() {
         open_xml_tag("classVarDec");
 
-        assert(
-            t->peek() == "static" ||
-            t->peek() == "field");
+        if (
+            !(t->peek() == "static" ||
+            t->peek() == "field"))
+        {
+            return false;
+        }
         write_xml("keyword");
 
-        parse_type();
+        if (!parse_type()) return false;
 
-        parse_identifier();
+        if (!parse_identifier()) return false;
 
         while (t->peek() == ",") {
-            assert(t->peek() == ",");
+            if (t->peek() != ",") return false;
             write_xml("symbol");
 
-            parse_identifier();
+            if (!parse_identifier()) return false;
         }
 
-        assert(t->peek() == ";");
+        if (t->peek() != ";") return false;
         write_xml("symbol");
 
         close_xml_tag("classVarDec");
+        return true;
     }
 
-    void parse_subroutine_dec() {
+    bool parse_subroutine_dec() {
         open_xml_tag("subroutineDec");
 
-        assert(
-            t->peek() == "constructor" ||
+        if (
+            !(t->peek() == "constructor" ||
             t->peek() == "function" ||
-            t->peek() == "method");
+            t->peek() == "method"))
+        {
+            return false;
+        };
         write_xml("keyword");
 
         if (t->peek() == "void") {
             write_xml("keyword");
         } else {
-            parse_type();
+            if (!parse_type()) return false;
         }
 
-        parse_identifier();
+        if (!parse_identifier()) return false;
 
-        assert(t->peek() == "(");
+        if (t->peek() != "(") return false;
         write_xml("symbol");
 
-        parse_parameter_list();
+        if (!parse_parameter_list()) return false;
 
-        assert(t->peek() == ")");
+        if (t->peek() != ")") return false;
         write_xml("symbol");
 
-        parse_subroutine_body();
+        if (!parse_subroutine_body()) return false;
 
         close_xml_tag("subroutineDec");
+        return true;
     }
 
-    void parse_parameter_list() {
+    bool parse_parameter_list() {
         open_xml_tag("parameterList");
 
         if (t->peek() != ")") {
-            parse_type();
+            if (!parse_type()) return false;
 
-            parse_identifier();
+            if (!parse_identifier()) return false;
 
             while (t->peek() == ",") {
-                assert(t->peek() == ",");
+                if (t->peek() != ",") return false;
                 write_xml("symbol");
 
-                parse_type();
+                if (!parse_type()) return false;
 
-                parse_identifier();
+                if (!parse_identifier()) return false;
             }
         }
 
         close_xml_tag("parameterList");
+        return true;
     }
 
-    void parse_subroutine_body() {
+    bool parse_subroutine_body() {
         open_xml_tag("subroutineBody");
 
-        assert(t->peek() == "{");
+        if (t->peek() != "{") return false;
         write_xml("symbol");
 
         while (t->peek() == "var") {
-            parse_var_dec();
+            if (!parse_var_dec()) return false;
         }
 
-        parse_statements();
+        if (!parse_statements()) return false;
 
-        assert(t->peek() == "}");
+        if (t->peek() != "}") return false;
         write_xml("symbol");
 
         close_xml_tag("subroutineBody");
+        return true;
     }
 
-    void parse_statements() {
+    bool parse_statements() {
         open_xml_tag("statements");
 
         while (
@@ -169,298 +183,337 @@ private:
             t->peek() == "do" ||
             t->peek() == "return")
         {
-            parse_statement();
+            if (!parse_statement()) return false;
         }
 
         close_xml_tag("statements");
+        return true;
     }
 
-    void parse_statement() {
+    bool parse_statement() {
         if (t->peek() == "let") {
-            parse_let_statement();
+            if (!parse_let_statement()) return false;
         }
         else if (t->peek() == "if") {
-            parse_if_statement();
+            if (!parse_if_statement()) return false;
         }
         else if (t->peek() == "while") {
-            parse_while_statement();
+            if (!parse_while_statement()) return false;
         }
         else if (t->peek() == "do") {
-            parse_do_statement();
+            if (!parse_do_statement()) return false;
         }
         else if (t->peek() == "return") {
-            parse_return_statement();
+            if (!parse_return_statement()) return false;
         } else {
-            throw runtime_error("Expected one of these keywords: let, if, while, do, return");
+            return false;
         }
+
+        return true;
     }
 
-    void parse_let_statement() {
+    bool parse_let_statement() {
         open_xml_tag("letStatement");
 
-        assert(t->peek() == "let");
+        if (t->peek() != "let") return false;
         write_xml("keyword");
 
-        parse_identifier();
+        if (!parse_identifier()) return false;
 
         if (t->peek() == "[") {
-            assert(t->peek() == "[");
+            if (t->peek() != "[") return false;
             write_xml("symbol");
 
-            parse_expression();
+            if (!parse_expression()) return false;
 
-            assert(t->peek() == "]");
+            if (t->peek() != "]") return false;
             write_xml("symbol");
         }
 
-        assert(t->peek() == "=");
+        if (t->peek() != "=") return false;
         write_xml("symbol");
 
-        parse_expression();
+        if (!parse_expression()) return false;
 
-        assert(t->peek() == ";");
+        if (t->peek() != ";") return false;
         write_xml("symbol");
 
         close_xml_tag("letStatement");
+        return true;
     }
 
-    void parse_if_statement() {
+    bool parse_if_statement() {
         open_xml_tag("ifStatement");
 
-        assert(t->peek() == "if");
+        if (t->peek() != "if") return false;
         write_xml("keyword");
 
-        assert(t->peek() == "(");
+        if (t->peek() != "(") return false;
         write_xml("symbol");
 
-        parse_expression();
+        if (!parse_expression()) return false;
 
-        assert(t->peek() == ")");
+        if (t->peek() != ")") return false;
         write_xml("symbol");
 
-        assert(t->peek() == "{");
+        if (t->peek() != "{") return false;
         write_xml("symbol");
 
-        parse_statements();
+        if (!parse_statements()) return false;
 
-        assert(t->peek() == "}");
+        if (t->peek() != "}") return false;
         write_xml("symbol");
 
         if (t->peek() == "else") {
-            assert(t->peek() == "else");
+            if (t->peek() != "else") return false;
             write_xml("keyword");
 
-            assert(t->peek() == "{");
+            if (t->peek() != "{") return false;
             write_xml("symbol");
 
-            parse_statements();
+            if (!parse_statements()) return false;
 
-            assert(t->peek() == "}");
+            if (t->peek() != "}") return false;
             write_xml("symbol");
         }
 
         close_xml_tag("ifStatement");
+        return true;
     }
 
-    void parse_while_statement() {
+    bool parse_while_statement() {
         open_xml_tag("whileStatement");
 
-        assert(t->peek() == "while");
+        if (t->peek() != "while") return false;
         write_xml("keyword");
 
-        assert(t->peek() == "(");
+        if (t->peek() != "(") return false;
         write_xml("symbol");
 
-        parse_expression();
+        if (!parse_expression()) return false;
 
-        assert(t->peek() == ")");
+        if (t->peek() != ")") return false;
         write_xml("symbol");
 
-        assert(t->peek() == "{");
+        if (t->peek() != "{") return false;
         write_xml("symbol");
 
-        parse_statements();
+        if (!parse_statements()) return false;
 
-        assert(t->peek() == "}");
+        if (t->peek() != "}") return false;
         write_xml("symbol");
 
         close_xml_tag("whileStatement");
+        return true;
     }
 
-    void parse_do_statement() {
+    bool parse_do_statement() {
         open_xml_tag("doStatement");
 
-        assert(t->peek() == "do");
+        if (t->peek() != "do") return false;
         write_xml("keyword");
 
-        parse_subroutine_call();
+        if (!parse_subroutine_call()) return false;
 
-        assert(t->peek() == ";");
+        if (t->peek() != ";") return false;
         write_xml("symbol");
 
         close_xml_tag("doStatement");
+        return true;
     }
 
-    void parse_return_statement() {
+    bool parse_return_statement() {
         open_xml_tag("returnStatement");
 
-        assert(t->peek() == "return");
+        if (t->peek() != "return") return false;
         write_xml("keyword");
 
         if (t->peek() != ";") {
-            parse_expression();
+            if (!parse_expression()) return false;
         }
 
-        assert(t->peek() == ";");
+        if (t->peek() != ";") return false;
         write_xml("symbol");
 
         close_xml_tag("returnStatement");
+        return true;
     }
 
-    void parse_expression_list() {
+    bool parse_expression_list() {
         open_xml_tag("expressionList");
 
-        if (true) { // TODO is expression?
-            parse_expression();
+        if (is_expression()) {
+            if (!parse_expression()) return false;
 
             while (t->peek() == ",") {
-                assert(t->peek() == ",");
+                if (t->peek() != ",") return false;
                 write_xml("symbol");
 
-                parse_expression();
+                if (!parse_expression()) return false;
             }
         }
 
         close_xml_tag("expressionList");
+        return true;
     }
     
-    void parse_expression() {
+    bool parse_expression() {
         open_xml_tag("expression");
 
-        parse_term();
+        if (!parse_term()) return false;
 
         while (regex_match(t->peek(), OP)) {
-            parse_op();
+            if (!parse_op()) return false;
 
-            parse_term();
+            if (!parse_term()) return false;
         }
 
         close_xml_tag("expression");
+        return true;
     }
 
-    void parse_term() {
+    bool is_expression() {
+        t->save_state();
+        writing_enabled = false;
+
+        if (!parse_expression()) {
+            t->restore_state();
+            return false;
+        }
+
+        t->restore_state();
+        writing_enabled = true;
+        return true;
+    }
+
+    bool parse_term() {
         open_xml_tag("term");
 
         if (regex_match(t->peek(), INTEGER_CONSTANT)) {
             write_xml("integerConstant");
         } else if (t->peek() == "\"") {
-            write_xml("symbol");
+            t->advance();
 
+            if (writing_enabled) output << indent << "<stringConstant>";
             while (t->peek() != "\"") {
-                assert(regex_match(t->peek(), STRING_CONSTANT));
+                if (!(regex_match(t->peek(), STRING_CONSTANT))) return false;
+                if (writing_enabled) output << " " << t->peek();
                 t->advance();
             }
-            assert(t->peek() == "\"");
-            write_xml("stringConstant");
+            if (t->peek() != "\"") return false;
+            if (writing_enabled) output << " </stringConstant>\n";
+            t->advance();
+
         } else if (regex_match(t->peek(), KEYWORD_CONSTANT)) {
             write_xml("keyword");
         } else if (regex_match(t->peek(), UNARY_OP)) {
             write_xml("symbol");
         } else if (t->peek() == "(") {
-            assert(t->peek() == "(");
+            if (t->peek() != "(") return false;
 
-            parse_expression();
+            if (!parse_expression()) return false;
 
-            assert(t->peek() == ")s");
+            if (t->peek() != ")s") return false;
         } else {
             if (t->look_ahead(1) == "(" || t->look_ahead(1) == ".") {
-                parse_subroutine_call();
+                if (!parse_subroutine_call()) return false;
             } else {
-                parse_identifier();
+                if (!parse_identifier()) return false;
 
                 if (t->peek() == "[") {
-                    assert(t->peek() == "[");
+                    if (t->peek() != "[") return false;
                     write_xml("symbol");
 
-                    parse_expression();
+                    if (!parse_expression()) return false;
 
-                    assert(t->peek() == "]");
+                    if (t->peek() != "]") return false;
                     write_xml("symbol");
                 }
             }
         }
 
-
         close_xml_tag("term");
+        return true;
     }
 
-    void parse_op() {
-        assert(regex_match(t->peek(), OP));
+    bool parse_op() {
+        if (!(regex_match(t->peek(), OP))) return false;
         write_xml("symbol");
+
+        return true;
     }
 
-    void parse_subroutine_call() {
-        open_xml_tag("subroutineCall");
-
-        parse_identifier();
+    bool parse_subroutine_call() {
+        if (!parse_identifier()) return false;
 
         if (t->peek() == ".") {
-            assert(t->peek() == ".");
+            if (t->peek() != ".") return false;
             write_xml("symbol");
 
-            parse_identifier();
+            if (!parse_identifier()) return false;
         }
 
-        assert(t->peek() == "(");
+        if (t->peek() != "(") return false;
         write_xml("symbol");
 
-        parse_expression_list();
+        if (!parse_expression_list()) return false;
 
-        assert(t->peek() == ")");
+        if (t->peek() != ")") return false;
         write_xml("symbol");
 
-        close_xml_tag("subroutineCall");
+        return true;
     }
 
-    void parse_var_dec() {
+    bool parse_var_dec() {
         open_xml_tag("varDec");
 
-        assert(t->peek() == "var");
+        if (t->peek() != "var") {
+            return false;
+        } 
         write_xml("keyword");
 
-        parse_type();
+        if (!parse_type()) return false;
 
-        parse_identifier();
+        if (!parse_identifier()) return false;
 
         while (t->peek() == ",") {
-            assert(t->peek() == ",");
+            if (t->peek() != ",") {
+                return false;
+            }
             write_xml("symbol");
 
-            parse_identifier();
+            if (!parse_identifier()) return false;
         }
 
-        assert(t->peek() == ";");
+        if (t->peek() != ";") return false;
         write_xml("symbol");
 
         close_xml_tag("varDec");
+        return true;
     }
 
-    void parse_identifier() {
-        assert(regex_match(t->peek(), IDENTIFIER));
+    bool parse_identifier() {
+        if (!regex_match(t->peek(), IDENTIFIER)) {
+            return false;
+        }
         write_xml("identifier");
+
+        return true;
     }
 
-    void parse_type() {
+    bool parse_type() {
         if (
             t->peek() == "int" ||
             t->peek() == "char" ||
             t->peek() == "boolean")
         {
             write_xml("keyword");
-        } else
-        {
-            parse_identifier();
+            return true;
         }
+        
+        if (!parse_identifier()) return false;
+
+        return true;
     }
 
 
@@ -484,7 +537,9 @@ private:
         // debug
         cout << indent << "<" << tag << "> " << token << " </" << tag << ">\n";
         
-        output << indent << "<" << tag << "> " << token << " </" << tag << ">\n";
+        if (writing_enabled) {
+            output << indent << "<" << tag << "> " << token << " </" << tag << ">\n";
+        }
         if (advance) t->advance();
     }
 
@@ -492,16 +547,20 @@ private:
         // debug
         cout << indent << "<" << tag << ">\n";
 
-        output << indent << "<" << tag << ">\n";
+        if (writing_enabled) {
+            output << indent << "<" << tag << ">\n";
+        }
         if (increase_indent) inc_indent();
     }
 
     void close_xml_tag(string tag, bool decrease_indent = true) {
         if (decrease_indent) dec_indent();
-        output << indent << "</" << tag << ">\n";
+        if (writing_enabled) {
+            output << indent << "</" << tag << ">\n";
+        }
 
         // debug
-        output << indent << "</" << tag << ">\n";
+        cout << indent << "</" << tag << ">\n";
     }
 };
 
