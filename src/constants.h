@@ -33,7 +33,8 @@ static const list<char> SYMBOLS = {
     '<',
     '>',
     '=',
-    '~'
+    '~',
+    '"'
 };
 
 static const list<string> KEYWORDS = {
