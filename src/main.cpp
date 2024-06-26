@@ -13,11 +13,17 @@ static const string OUTPUT_TYPE = ".vm";
 void to_xml(fs::path path) {
     Tokenizer t(path);
     Parser p(t);
-    string outputFileName = path.stem().string() + INTERMEDIATE_TYPE;
+    string outputFileName = 
+        path.parent_path().string() +
+        fs::path::preferred_separator +
+        path.stem().string() +
+        INTERMEDIATE_TYPE;
     ofstream outputFile(outputFileName);
     if (outputFile.is_open()) {
         outputFile << p.parse();
         outputFile.close();
+    } else {
+        cout << "Failed to open output file: " << outputFileName << '\n';
     }
 }
 
@@ -30,11 +36,15 @@ int main(int argc, char *argv[])
     
     if (fs::is_directory(path)) {
         cout << "Input is a directory: " << path << endl;
+        vector<fs::path> paths;
         for (const auto& entry : fs::directory_iterator(path)) {
             if (entry.path().extension() == INPUT_TYPE) {
                 cout << "Found valid file: " << entry.path().filename() << '\n';
-                to_xml(entry.path());
+                paths.push_back(entry.path());
             }
+        }
+        for (const auto& path : paths) {
+            to_xml(path);
         }
     } else if (fs::is_regular_file(path) && path.extension() == INPUT_TYPE) {
         cout << "Input is a single file: " << path.filename() << '\n';
