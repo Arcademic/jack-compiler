@@ -409,12 +409,15 @@ private:
             write_xml("keyword");
         } else if (regex_match(t->peek(), UNARY_OP)) {
             write_xml("symbol");
+            if (!parse_term()) return false;
         } else if (t->peek() == "(") {
             if (t->peek() != "(") return false;
+            write_xml("symbol");
 
             if (!parse_expression()) return false;
 
-            if (t->peek() != ")s") return false;
+            if (t->peek() != ")") return false;
+            write_xml("symbol");
         } else {
             if (t->look_ahead(1) == "(" || t->look_ahead(1) == ".") {
                 if (!parse_subroutine_call()) return false;
