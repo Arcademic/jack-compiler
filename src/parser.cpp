@@ -378,6 +378,7 @@ private:
 
         if (!parse_expression()) {
             t->restore_state();
+            writing_enabled = true;
             return false;
         }
 
