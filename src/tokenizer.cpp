@@ -79,7 +79,6 @@ public:
 
     string advance() {
         if (pos < tokens.size()) {
-            cout << tokens[pos+1] << endl; // debug
             return tokens[pos++];
         } else {
             throw runtime_error("No more tokens available.");
@@ -100,16 +99,10 @@ public:
 
     void save_state() {
         save_state_pos = pos;
-        cout << "Saving position: " << pos << endl;
     }
 
     void restore_state() {
         pos = save_state_pos;
-        cout << "Restoring position: " << pos << endl;
-    }
-
-    long unsigned int get_pos() {
-        return pos;
     }
 
 private:

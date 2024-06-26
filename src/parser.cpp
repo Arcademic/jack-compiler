@@ -535,8 +535,6 @@ private:
             token = XML_SYMBOLS.at(token);
         }
 
-        // debug
-        cout << indent << "<" << tag << "> " << token << " </" << tag << ">\n";
         
         if (writing_enabled) {
             output << indent << "<" << tag << "> " << token << " </" << tag << ">\n";
@@ -545,9 +543,6 @@ private:
     }
 
     void open_xml_tag(string tag, bool increase_indent = true) {
-        // debug
-        cout << indent << "<" << tag << ">\n";
-
         if (writing_enabled) {
             output << indent << "<" << tag << ">\n";
         }
@@ -559,9 +554,6 @@ private:
         if (writing_enabled) {
             output << indent << "</" << tag << ">\n";
         }
-
-        // debug
-        cout << indent << "</" << tag << ">\n";
     }
 };
 
