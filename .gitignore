@@ -5,3 +5,4 @@ tools/
 target/
 *.o
 *.out
+*.xml
