@@ -1,5 +1,5 @@
 #include "tokenizer.cpp"
-#include "parser.cpp"
+#include "parser_v2.cpp"
 #include <fstream>
 #include <filesystem>
 
@@ -10,7 +10,16 @@ static const string INPUT_TYPE = ".jack";
 static const string INTERMEDIATE_TYPE = ".xml";
 static const string OUTPUT_TYPE = ".vm";
 
-bool init = false;
+void to_xml(fs::path path) {
+    Tokenizer t(path);
+    Parser p(t);
+    string outputFileName = path.stem().string() + INTERMEDIATE_TYPE;
+    ofstream outputFile(outputFileName);
+    if (outputFile.is_open()) {
+        outputFile << p.parse();
+        outputFile.close();
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -24,21 +33,12 @@ int main(int argc, char *argv[])
         for (const auto& entry : fs::directory_iterator(path)) {
             if (entry.path().extension() == INPUT_TYPE) {
                 cout << "Found valid file: " << entry.path().filename() << '\n';
-
-                Tokenizer t(entry.path());
-                Parser p(t);
-                cout << p.parse() << endl;
+                to_xml(entry.path());
             }
-            cout << "Done." << '\n';
         }
     } else if (fs::is_regular_file(path) && path.extension() == INPUT_TYPE) {
         cout << "Input is a single file: " << path.filename() << '\n';
-
-        Tokenizer t(path);
-        Parser p(t);
-        cout << p.parse() << endl;
-
-        cout << "Done." << '\n';
+        to_xml(path);
     } else {
         cout << "Invalid argument: " << path << '\n';
         cout << flush;
