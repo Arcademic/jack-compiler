@@ -551,11 +551,11 @@ private:
         if (writing_enabled) {
             output << indent << "<" << tag << ">\n";
         }
-        if (increase_indent) inc_indent();
+        if (increase_indent && writing_enabled) inc_indent();
     }
 
     void close_xml_tag(string tag, bool decrease_indent = true) {
-        if (decrease_indent) dec_indent();
+        if (decrease_indent && writing_enabled) dec_indent();
         if (writing_enabled) {
             output << indent << "</" << tag << ">\n";
         }
