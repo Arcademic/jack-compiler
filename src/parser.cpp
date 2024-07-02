@@ -3,6 +3,7 @@
 
 #include "constants.h"
 #include "tokenizer.cpp"
+#include "codewriter.cpp"
 #include <sstream>
 #include <iostream>
 #include <cassert>
@@ -394,17 +395,10 @@ private:
             write_xml("integerConstant");
         } else if (t->peek() == "\"") {
             t->advance();
-
-            if (writing_enabled) output << indent << "<stringConstant>";
-            while (t->peek() != "\"") {
-                if (!(regex_match(t->peek(), STRING_CONSTANT))) return false;
-                if (writing_enabled) output << " " << t->peek();
-                t->advance();
-            }
+            if (!(regex_match(t->peek(), STRING_CONSTANT))) return false;
+            write_xml("stringConstant");
             if (t->peek() != "\"") return false;
-            if (writing_enabled) output << " </stringConstant>\n";
             t->advance();
-
         } else if (regex_match(t->peek(), KEYWORD_CONSTANT)) {
             write_xml("keyword");
         } else if (regex_match(t->peek(), UNARY_OP)) {

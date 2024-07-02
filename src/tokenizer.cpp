@@ -72,7 +72,18 @@ public:
             stringstream line_stream(line);
             while (line_stream >> value)
             {
-                tokens.push_back(value);
+                // handle string constants
+                if (value == "\"") {
+                    tokens.push_back(value);
+                    auto str_const_start_pos = line.find_first_of("\"");
+                    auto str_const_end_pos = line.find_last_of("\"");
+                    string str_const = line.substr(str_const_start_pos + 2, str_const_end_pos - str_const_start_pos - 3);
+                    tokens.push_back(str_const);
+                    while (line_stream >> value && value != "\"");
+                    tokens.push_back(value);
+                } else {
+                    tokens.push_back(value);
+                }
             }
         }
     }
