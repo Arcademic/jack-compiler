@@ -1,5 +1,5 @@
 #include "tokenizer.cpp"
-#include "parser.cpp"
+#include "compiler.cpp"
 #include <fstream>
 #include <filesystem>
 
@@ -12,7 +12,7 @@ static const string OUTPUT_TYPE = ".vm";
 
 void to_xml(fs::path path) {
     Tokenizer t(path);
-    Parser p(t);
+    Compiler c(t);
     string outputFileName = 
         path.parent_path().string() +
         fs::path::preferred_separator +
@@ -20,7 +20,7 @@ void to_xml(fs::path path) {
         INTERMEDIATE_TYPE;
     ofstream outputFile(outputFileName);
     if (outputFile.is_open()) {
-        outputFile << p.parse();
+        outputFile << c.compile();
         outputFile.close();
     } else {
         cout << "Failed to open output file: " << outputFileName << '\n';
