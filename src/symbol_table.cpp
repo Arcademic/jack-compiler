@@ -53,7 +53,8 @@ public:
         if (table.count(name) > 0) {
             return get<0>(table[name]);
         } else {
-            cout << "Error: Variable '" << name << "' not found in symbol table." << endl;
+            cout << "Cannot get type of variable '" << name << "'." << endl;
+            cout << "Variable '" << name << "' not found in symbol table." << endl;
             return "";
         }
     }
@@ -62,6 +63,7 @@ public:
         if (table.count(name) > 0) {
             return get<1>(table[name]);
         } else {
+            cout << "Cannot get kind of variable '" << name << "'." << endl;
             cout << "Error: Variable '" << name << "' not found in symbol table." << endl;
             return "";
         }
@@ -71,6 +73,7 @@ public:
         if (table.count(name) > 0) {
             return get<2>(table[name]);
         } else {
+            cout << "Cannot get index of variable '" << name << "'." << endl;
             cout << "Error: Variable '" << name << "' not found in symbol table." << endl;
             return -1;
         }
