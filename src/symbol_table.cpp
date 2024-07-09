@@ -9,7 +9,7 @@ public:
         static_vars_count = 0;
         field_vars_count = 0;
         arg_vars_count = 0;
-        var_vars_count = 0;
+        local_vars_count = 0;
     }
 
     void define(string name, string type, string kind) {
@@ -24,8 +24,8 @@ public:
             index = arg_vars_count;
             arg_vars_count++;
         } else if (kind == "var") {
-            index = var_vars_count;
-            var_vars_count++;
+            index = local_vars_count;
+            local_vars_count++;
         }
         else {
             cout << "Error: Kind '" << kind << "' not recognized. Expected 'static', 'field', 'arg' or 'var'." << endl;
@@ -42,7 +42,7 @@ public:
         } else if (kind == "arg") {
             return arg_vars_count;
         } else if (kind == "var") {
-            return var_vars_count;
+            return local_vars_count;
         } else {
             cout << "Error: Kind '" << kind << "' not recognized. Expected 'static', 'field', 'arg' or 'var'." << endl;
             return -1;
@@ -84,7 +84,7 @@ public:
         static_vars_count = 0;
         field_vars_count = 0;
         arg_vars_count = 0;
-        var_vars_count = 0;
+        local_vars_count = 0;
     }
 
     void print() {
@@ -107,5 +107,5 @@ private:
     int static_vars_count;
     int field_vars_count;
     int arg_vars_count;
-    int var_vars_count;
+    int local_vars_count;
 };
