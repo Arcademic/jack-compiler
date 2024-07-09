@@ -80,4 +80,19 @@ static const regex STRING_CONSTANT("[^\"\n]+");
 
 static const regex KEYWORD_CONSTANT("(true|false|null|this)");
 
+static const unordered_map<string, string> OP_TO_VM = {
+    {"+", "add"},
+    {"-", "sub"},
+    {"=", "eq"},
+    {">", "gt"},
+    {"<", "lt"},
+    {"&", "and"},
+    {"|", "or"},
+};
+
+static const unordered_map<string, string> UNARY_OP_TO_VM = {
+    {"-", "neg"},
+    {"~", "not"},
+};
+
 #endif // CONSTANTS_H
