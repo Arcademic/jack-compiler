@@ -7,17 +7,16 @@ using namespace std;
 namespace fs = filesystem;
 
 static const string INPUT_TYPE = ".jack";
-static const string INTERMEDIATE_TYPE = ".xml";
 static const string OUTPUT_TYPE = ".vm";
 
-void to_xml(fs::path path) {
+void to_file(fs::path path) {
     Tokenizer t(path);
     Compiler c(t);
     string outputFileName = 
         path.parent_path().string() +
         fs::path::preferred_separator +
         path.stem().string() +
-        INTERMEDIATE_TYPE;
+        OUTPUT_TYPE;
     ofstream outputFile(outputFileName);
     if (outputFile.is_open()) {
         outputFile << c.compile();
@@ -44,11 +43,11 @@ int main(int argc, char *argv[])
             }
         }
         for (const auto& path : paths) {
-            to_xml(path);
+            to_file(path);
         }
     } else if (fs::is_regular_file(path) && path.extension() == INPUT_TYPE) {
         cout << "Input is a single file: " << path.filename() << '\n';
-        to_xml(path);
+        to_file(path);
     } else {
         cout << "Invalid argument: " << path << '\n';
         cout << flush;
