@@ -3,7 +3,6 @@
 
 #include "constants.h"
 #include "tokenizer.cpp"
-#include "codewriter.cpp"
 #include "symbol_table.cpp"
 #include <sstream>
 #include <iostream>
@@ -152,6 +151,8 @@ private:
 
         cout << "Subroutine symbol table: " << subroutine_name << endl;
         subroutine_table.print();
+
+        write_function(subroutine_name, subroutine_table.var_count("var"));
 
         close_xml_tag("subroutineDec");
         return true;
@@ -570,6 +571,12 @@ private:
         return true;
     }
 
+    // WRITE VM CODE
+
+    void write_function(string name, int n_locals) {
+        output << "function " << class_name << '.' << name << " " << to_string(n_locals) << '\n';
+    }
+
 
     // HELPER METHODS
 
@@ -590,14 +597,14 @@ private:
 
         
         if (writing_enabled) {
-            output << indent << "<" << tag << "> " << token << " </" << tag << ">\n";
+            // output << indent << "<" << tag << "> " << token << " </" << tag << ">\n";
         }
         if (advance) t->advance();
     }
 
     void open_xml_tag(string tag, bool increase_indent = true) {
         if (writing_enabled) {
-            output << indent << "<" << tag << ">\n";
+            // output << indent << "<" << tag << ">\n";
         }
         if (increase_indent && writing_enabled) inc_indent();
     }
@@ -605,7 +612,7 @@ private:
     void close_xml_tag(string tag, bool decrease_indent = true) {
         if (decrease_indent && writing_enabled) dec_indent();
         if (writing_enabled) {
-            output << indent << "</" << tag << ">\n";
+            // output << indent << "</" << tag << ">\n";
         }
     }
 };
