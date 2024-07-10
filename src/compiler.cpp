@@ -42,9 +42,10 @@ private:
     SymbolTable subroutine_table;
 
     int n_args_count;
-
     int while_label_count = 0;
     int if_label_count = 0;
+
+    bool is_constructor;
 
     bool compile_class() {
         
@@ -123,8 +124,13 @@ private:
     bool compile_subroutine_dec() {
         subroutine_table.reset();
         string keyword = t->peek();
+
+        is_constructor = false;
+
         if (keyword == "method") {
             subroutine_table.define("this", class_name, "arg");
+        } else if (keyword == "constructor") {
+            is_constructor = true;
         }
 
         if (
@@ -153,11 +159,13 @@ private:
         if (t->peek() != ")") return false;
         t->advance();
 
-        if (!compile_subroutine_body(subroutine_name)) return false;
+        if (!compile_subroutine_body(subroutine_name, keyword == "method")) return false;
+
+        if_label_count = 0;
+        while_label_count = 0;
 
         cout << "Subroutine symbol table: " << subroutine_name << endl;
         subroutine_table.print();
-
         
         return true;
     }
@@ -192,9 +200,7 @@ private:
         return true;
     }
 
-    bool compile_subroutine_body(string subroutine_name) {
-        
-
+    bool compile_subroutine_body(string subroutine_name, bool is_method) {
         if (t->peek() != "{") return false;
         t->advance();
 
@@ -204,11 +210,19 @@ private:
 
         write_function(subroutine_name, subroutine_table.var_count("var"));
 
+        if (is_constructor) {
+            write_push("constant", to_string(class_table.var_count("field")));
+            write_call("Memory.alloc", 1);
+            write_pop("pointer", "0");
+        } else if (is_method) {
+            write_push("argument", "0");
+            write_pop("pointer", "0");
+        }
+
         if (!compile_statements()) return false;
 
         if (t->peek() != "}") return false;
         t->advance();
-
         
         return true;
     }
@@ -323,6 +337,7 @@ private:
         t->advance();
 
         string end_label = "IF_END";
+        end_label.append(to_string(label_count));
 
         if (t->peek() == "else") {
             if (t->peek() != "else") return false;
@@ -331,7 +346,6 @@ private:
             if (t->peek() != "{") return false;
             t->advance();
 
-            end_label.append(to_string(label_count));
             write_goto(end_label);
 
             write_label(cond_false_label);
@@ -340,11 +354,12 @@ private:
 
             if (t->peek() != "}") return false;
             t->advance();
+
+            write_label(end_label);
+        } else {
+            write_label(cond_false_label);
         }
-
-        write_label(end_label);
-        if_label_count = 0;
-
+        
         return true;
     }
 
@@ -381,14 +396,11 @@ private:
 
         write_goto(cond_label);
         write_label(end_label);
-        while_label_count = 0;
         
         return true;
     }
 
     bool compile_do_statement() {
-        
-
         if (t->peek() != "do") return false;
         t->advance();
 
@@ -397,19 +409,12 @@ private:
         if (t->peek() != ";") return false;
         t->advance();
 
-        
-
-        
         return true;
     }
 
     bool compile_return_statement() {
-        
-
         if (t->peek() != "return") return false;
         t->advance();
-
-
 
         if (t->peek() != ";") {
             if (!compile_expression()) return false;
@@ -426,8 +431,6 @@ private:
     }
 
     bool compile_expression_list() {
-        
-
         if (is_expression()) {
             if (!compile_expression()) return false;
             n_args_count++;
@@ -440,14 +443,11 @@ private:
                 n_args_count++;
             }
         }
-
         
         return true;
     }
     
     bool compile_expression() {
-        
-
         if (!compile_term()) return false;
 
         while (regex_match(t->peek(), OP)) {
@@ -464,8 +464,6 @@ private:
     }
 
     bool compile_term() {
-        
-
         if (regex_match(t->peek(), INTEGER_CONSTANT)) {
             string integer_constant = t->peek();
             t->advance();
@@ -533,7 +531,6 @@ private:
                 }
             }
         }
-
         
         return true;
     }
@@ -546,6 +543,10 @@ private:
     }
 
     bool compile_subroutine_call() {
+        bool is_method = false;
+        bool is_other_method_local = false;
+        bool is_other_method_field = false;
+
         string subroutine_name = t->peek();
         if (!compile_identifier()) return false;
 
@@ -553,8 +554,19 @@ private:
             if (t->peek() != ".") return false;
             t->advance();
 
+            if (subroutine_table.contains(subroutine_name)) {
+                subroutine_name = subroutine_table.type_of(subroutine_name);
+                is_other_method_local = true;
+            } else if (class_table.contains(subroutine_name)) {
+                subroutine_name = class_table.type_of(subroutine_name);
+                is_other_method_field = true;
+            }
+            
             subroutine_name.append(".").append(t->peek());
             if (!compile_identifier()) return false;
+        } else {
+            subroutine_name = class_name + "." + subroutine_name;
+            is_method = true;
         }
 
         if (t->peek() != "(") return false;
@@ -566,14 +578,22 @@ private:
         if (t->peek() != ")") return false;
         t->advance();
 
+        if (is_method) {
+            write_push("pointer", "0");
+            n_args_count++;
+        } else if (is_other_method_local) {
+            write_push("local", "0");
+            n_args_count++;
+        } else if (is_other_method_field) {
+            write_push("this", "0");
+            n_args_count++;
+        }
         write_call(subroutine_name, n_args_count);
 
         return true;
     }
 
     bool compile_var_dec() {
-        
-
         string kind = t->peek();
         if (kind != "var") {
             return false;
@@ -693,27 +713,39 @@ private:
     }
 
     void write_call(string name, int n_args) {
-        output << "call " << name << " " << to_string(n_args) << '\n';
+        if (writing_enabled) {
+            output << "call " << name << " " << to_string(n_args) << '\n';
+        }
     }
 
     void write_return() {
-        output << "return" << "\n";
+        if (writing_enabled) {
+            output << "return" << "\n";
+        }
     }
 
     void write_label(string label) {
-        output << "label " << label << endl;
+        if (writing_enabled) {
+            output << "label " << label << endl;
+        }
     }
 
     void write_if(string label) {
-        output << "if-goto " << label << endl;
+        if (writing_enabled) {
+            output << "if-goto " << label << endl;
+        }
     }
 
     void write_goto(string label) {
-        output << "goto " << label << endl;
+        if (writing_enabled) {
+            output << "goto " << label << endl;
+        }
     }
 
     void write(string command) {
-        output << command << '\n';
+        if (writing_enabled) {
+            output << command << '\n';
+        }
     }
 
 };
