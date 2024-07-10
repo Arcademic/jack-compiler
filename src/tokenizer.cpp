@@ -59,8 +59,10 @@ public:
             // insert spaces around symbols, so they can be tokenized
             for (char symbol : SYMBOLS)
             {
+                size_t str_const_start_pos = line.find_first_of("\"");
+                size_t str_const_end_pos = line.find_last_of("\"");
                 size_t pos = 0;
-                while ((pos = line.find(symbol, pos)) != NPOS)
+                while ((pos = line.find(symbol, pos)) != NPOS && (pos <= str_const_start_pos || pos >= str_const_end_pos))
                 {
                     line.insert(pos, " ");
                     line.insert(pos + 2, " ");
