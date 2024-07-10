@@ -797,5 +797,4 @@ private:
 
 };
 
-
 #endif // COMPILER_CPP
