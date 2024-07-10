@@ -41,17 +41,22 @@ private:
     SymbolTable class_table;
     SymbolTable subroutine_table;
 
+    int n_args_count;
+
+    int while_label_count = 0;
+    int if_label_count = 0;
+
     bool compile_class() {
-        open_xml_tag("class");
+        
 
         if (t->peek() != "class") return false;
-        write_xml("keyword");
+        t->advance();
 
         class_name = t->peek();
         if (!compile_identifier()) return false;
 
         if (t->peek() != "{") return false;
-        write_xml("symbol");
+        t->advance();
         
         while (
             t->peek() == "static" ||
@@ -69,17 +74,17 @@ private:
         }
 
         if (t->peek() != "}") return false;
-        write_xml("symbol");
+        t->advance();
 
         cout << "Class symbol table: " << endl;
         class_table.print();
 
-        close_xml_tag("class");
+        
         return true;
     }
 
     bool compile_class_var_dec() {
-        open_xml_tag("classVarDec");
+        
 
         string kind = t->peek();
         if (
@@ -88,7 +93,7 @@ private:
         {
             return false;
         }
-        write_xml("keyword");
+        t->advance();
 
         string type = t->peek();
         if (!compile_type()) return false;
@@ -100,7 +105,7 @@ private:
 
         while (t->peek() == ",") {
             if (t->peek() != ",") return false;
-            write_xml("symbol");
+            t->advance();
 
             name = t->peek();
             if (!compile_identifier()) return false;
@@ -109,29 +114,30 @@ private:
         }
 
         if (t->peek() != ";") return false;
-        write_xml("symbol");
+        t->advance();
 
-        close_xml_tag("classVarDec");
+        
         return true;
     }
 
     bool compile_subroutine_dec() {
-        open_xml_tag("subroutineDec");
-
         subroutine_table.reset();
-        subroutine_table.define("this", class_name, "arg"); // only for methods?
+        string keyword = t->peek();
+        if (keyword == "method") {
+            subroutine_table.define("this", class_name, "arg");
+        }
 
         if (
-            !(t->peek() == "constructor" ||
-            t->peek() == "function" ||
-            t->peek() == "method"))
+            !(keyword == "constructor" ||
+            keyword == "function" ||
+            keyword == "method"))
         {
             return false;
         };
-        write_xml("keyword");
+        t->advance();
 
         if (t->peek() == "void") {
-            write_xml("keyword");
+            t->advance();
         } else {
             if (!compile_type()) return false;
         }
@@ -140,26 +146,24 @@ private:
         if (!compile_identifier()) return false;
 
         if (t->peek() != "(") return false;
-        write_xml("symbol");
+        t->advance();
 
         if (!compile_parameter_list()) return false;
 
         if (t->peek() != ")") return false;
-        write_xml("symbol");
+        t->advance();
 
-        if (!compile_subroutine_body()) return false;
+        if (!compile_subroutine_body(subroutine_name)) return false;
 
         cout << "Subroutine symbol table: " << subroutine_name << endl;
         subroutine_table.print();
 
-        write_function(subroutine_name, subroutine_table.var_count("var"));
-
-        close_xml_tag("subroutineDec");
+        
         return true;
     }
 
     bool compile_parameter_list() {
-        open_xml_tag("parameterList");
+        
 
         if (t->peek() != ")") {
             string type = t->peek();
@@ -172,7 +176,7 @@ private:
 
             while (t->peek() == ",") {
                 if (t->peek() != ",") return false;
-                write_xml("symbol");
+                t->advance();
 
                 string type = t->peek();
                 if (!compile_type()) return false;
@@ -184,32 +188,32 @@ private:
             }
         }
 
-        close_xml_tag("parameterList");
+        
         return true;
     }
 
-    bool compile_subroutine_body() {
-        open_xml_tag("subroutineBody");
+    bool compile_subroutine_body(string subroutine_name) {
+        
 
         if (t->peek() != "{") return false;
-        write_xml("symbol");
+        t->advance();
 
         while (t->peek() == "var") {
             if (!compile_var_dec()) return false;
         }
 
+        write_function(subroutine_name, subroutine_table.var_count("var"));
+
         if (!compile_statements()) return false;
 
         if (t->peek() != "}") return false;
-        write_xml("symbol");
+        t->advance();
 
-        close_xml_tag("subroutineBody");
+        
         return true;
     }
 
     bool compile_statements() {
-        open_xml_tag("statements");
-
         while (
             t->peek() == "let" ||
             t->peek() == "if" ||
@@ -219,14 +223,24 @@ private:
         {
             if (!compile_statement()) return false;
         }
-
-        close_xml_tag("statements");
+        
         return true;
     }
 
     bool compile_statement() {
         if (t->peek() == "let") {
+            string var_name = t->look_ahead(1);
             if (!compile_let_statement()) return false;
+            string segment;
+            if (subroutine_table.contains(var_name)) {
+                segment = KIND_TO_SEGMENT.at(subroutine_table.kind_of(var_name));
+                write_pop(segment, to_string(subroutine_table.index_of(var_name)));
+            } else if (class_table.contains(var_name)) {
+                segment = KIND_TO_SEGMENT.at(class_table.kind_of(var_name));
+                write_pop(segment, to_string(class_table.index_of(var_name)));
+            } else {
+                cout << "Identifier '" << var_name << "' not recognized." << endl;
+            }
         }
         else if (t->peek() == "if") {
             if (!compile_if_statement()) return false;
@@ -236,6 +250,7 @@ private:
         }
         else if (t->peek() == "do") {
             if (!compile_do_statement()) return false;
+            write_pop("temp", "0");
         }
         else if (t->peek() == "return") {
             if (!compile_return_statement()) return false;
@@ -247,162 +262,373 @@ private:
     }
 
     bool compile_let_statement() {
-        open_xml_tag("letStatement");
+        
 
         if (t->peek() != "let") return false;
-        write_xml("keyword");
+        t->advance();
 
         if (!compile_identifier()) return false;
 
         if (t->peek() == "[") {
             if (t->peek() != "[") return false;
-            write_xml("symbol");
+            t->advance();
 
             if (!compile_expression()) return false;
 
             if (t->peek() != "]") return false;
-            write_xml("symbol");
+            t->advance();
         }
 
         if (t->peek() != "=") return false;
-        write_xml("symbol");
+        t->advance();
 
         if (!compile_expression()) return false;
 
         if (t->peek() != ";") return false;
-        write_xml("symbol");
+        t->advance();
 
-        close_xml_tag("letStatement");
+        
         return true;
     }
 
     bool compile_if_statement() {
-        open_xml_tag("ifStatement");
-
         if (t->peek() != "if") return false;
-        write_xml("keyword");
+        t->advance();
 
         if (t->peek() != "(") return false;
-        write_xml("symbol");
+        t->advance();
 
         if (!compile_expression()) return false;
 
         if (t->peek() != ")") return false;
-        write_xml("symbol");
+        t->advance();
+
+        int label_count = if_label_count++;
+        string cond_true_label = "IF_TRUE";
+        cond_true_label.append(to_string(label_count));
+        write_if(cond_true_label);
+
+        string cond_false_label = "IF_FALSE";
+        cond_false_label.append(to_string(label_count));
+        write_goto(cond_false_label);
+        
+        write_label(cond_true_label);
 
         if (t->peek() != "{") return false;
-        write_xml("symbol");
+        t->advance();
 
         if (!compile_statements()) return false;
 
         if (t->peek() != "}") return false;
-        write_xml("symbol");
+        t->advance();
+
+        string end_label = "IF_END";
 
         if (t->peek() == "else") {
             if (t->peek() != "else") return false;
-            write_xml("keyword");
+            t->advance();
 
             if (t->peek() != "{") return false;
-            write_xml("symbol");
+            t->advance();
+
+            end_label.append(to_string(label_count));
+            write_goto(end_label);
+
+            write_label(cond_false_label);
 
             if (!compile_statements()) return false;
 
             if (t->peek() != "}") return false;
-            write_xml("symbol");
+            t->advance();
         }
 
-        close_xml_tag("ifStatement");
+        write_label(end_label);
+        if_label_count = 0;
+
         return true;
     }
 
     bool compile_while_statement() {
-        open_xml_tag("whileStatement");
+        
+        int label_count = while_label_count++;
+        string cond_label = "WHILE_EXP";
+        cond_label.append(to_string(label_count));
+        write_label(cond_label);
 
         if (t->peek() != "while") return false;
-        write_xml("keyword");
+        t->advance();
 
         if (t->peek() != "(") return false;
-        write_xml("symbol");
+        t->advance();
 
         if (!compile_expression()) return false;
 
         if (t->peek() != ")") return false;
-        write_xml("symbol");
+        t->advance();
+
+        write("not");
+        string end_label = "WHILE_END";
+        end_label.append(to_string(label_count));
+        write_if(end_label);
 
         if (t->peek() != "{") return false;
-        write_xml("symbol");
+        t->advance();
 
         if (!compile_statements()) return false;
 
         if (t->peek() != "}") return false;
-        write_xml("symbol");
+        t->advance();
 
-        close_xml_tag("whileStatement");
+        write_goto(cond_label);
+        write_label(end_label);
+        while_label_count = 0;
+        
         return true;
     }
 
     bool compile_do_statement() {
-        open_xml_tag("doStatement");
+        
 
         if (t->peek() != "do") return false;
-        write_xml("keyword");
+        t->advance();
 
         if (!compile_subroutine_call()) return false;
 
         if (t->peek() != ";") return false;
-        write_xml("symbol");
+        t->advance();
 
-        close_xml_tag("doStatement");
+        
+
+        
         return true;
     }
 
     bool compile_return_statement() {
-        open_xml_tag("returnStatement");
+        
 
         if (t->peek() != "return") return false;
-        write_xml("keyword");
+        t->advance();
+
+
 
         if (t->peek() != ";") {
             if (!compile_expression()) return false;
+        } else {
+            write_push("constant", "0");
         }
 
         if (t->peek() != ";") return false;
-        write_xml("symbol");
+        t->advance();
 
-        close_xml_tag("returnStatement");
+        write_return();
+        
         return true;
     }
 
     bool compile_expression_list() {
-        open_xml_tag("expressionList");
+        
 
         if (is_expression()) {
             if (!compile_expression()) return false;
+            n_args_count++;
 
             while (t->peek() == ",") {
                 if (t->peek() != ",") return false;
-                write_xml("symbol");
+                t->advance();
 
                 if (!compile_expression()) return false;
+                n_args_count++;
             }
         }
 
-        close_xml_tag("expressionList");
+        
         return true;
     }
     
     bool compile_expression() {
-        open_xml_tag("expression");
+        
 
         if (!compile_term()) return false;
 
         while (regex_match(t->peek(), OP)) {
+            string op = t->peek();
             if (!compile_op()) return false;
 
             if (!compile_term()) return false;
+
+            write_op(op);
         }
 
-        close_xml_tag("expression");
+        
+        return true;
+    }
+
+    bool compile_term() {
+        
+
+        if (regex_match(t->peek(), INTEGER_CONSTANT)) {
+            string integer_constant = t->peek();
+            t->advance();
+
+            write_push("constant", integer_constant);
+        } else if (t->peek() == "\"") {
+            t->advance();
+            if (!(regex_match(t->peek(), STRING_CONSTANT))) return false;
+            t->advance();
+            if (t->peek() != "\"") return false;
+            t->advance();
+        } else if (regex_match(t->peek(), KEYWORD_CONSTANT)) {
+            string keyword = t->peek();
+            t->advance();
+            if (keyword == "true") {
+                write_push("constant", "0");
+                write("not");
+            } else if (keyword == "false") {
+                write_push("constant", "0");
+            } else if (keyword == "null") {
+                write_push("constant", "0");
+            } else if (keyword == "this") {
+                write_push("pointer", "0");
+            } else {
+                cout << "Keyword constant '" << keyword << "' not recognized. Expected 'true', 'false', 'null' or 'this'." << endl;
+            }
+        } else if (regex_match(t->peek(), UNARY_OP)) {
+            string op = t->peek();
+            t->advance();
+            if (!compile_term()) return false;
+            write_unary_op(op);
+        } else if (t->peek() == "(") {
+            if (t->peek() != "(") return false;
+            t->advance();
+
+            if (!compile_expression()) return false;
+
+            if (t->peek() != ")") return false;
+            t->advance();
+        } else {
+            if (t->look_ahead(1) == "(" || t->look_ahead(1) == ".") {
+                if (!compile_subroutine_call()) return false;
+            } else {
+                string var_name = t->peek();
+                if (!compile_identifier()) return false;
+                string segment;
+                if (subroutine_table.contains(var_name)) {
+                    segment = KIND_TO_SEGMENT.at(subroutine_table.kind_of(var_name));
+                    write_push(segment, to_string(subroutine_table.index_of(var_name)));
+                } else if (class_table.contains(var_name)) {
+                    segment = KIND_TO_SEGMENT.at(class_table.kind_of(var_name));
+                    write_push(segment, to_string(class_table.index_of(var_name)));
+                } else {
+                    cout << "Identifier '" << var_name << "' not recognized." << endl;
+                }
+
+                if (t->peek() == "[") {
+                    if (t->peek() != "[") return false;
+                    t->advance();
+
+                    if (!compile_expression()) return false;
+
+                    if (t->peek() != "]") return false;
+                    t->advance();
+                }
+            }
+        }
+
+        
+        return true;
+    }
+
+    bool compile_op() {
+        if (!(regex_match(t->peek(), OP))) return false;
+        t->advance();
+
+        return true;
+    }
+
+    bool compile_subroutine_call() {
+        string subroutine_name = t->peek();
+        if (!compile_identifier()) return false;
+
+        if (t->peek() == ".") {
+            if (t->peek() != ".") return false;
+            t->advance();
+
+            subroutine_name.append(".").append(t->peek());
+            if (!compile_identifier()) return false;
+        }
+
+        if (t->peek() != "(") return false;
+        t->advance();
+
+        n_args_count = 0;
+        if (!compile_expression_list()) return false;
+
+        if (t->peek() != ")") return false;
+        t->advance();
+
+        write_call(subroutine_name, n_args_count);
+
+        return true;
+    }
+
+    bool compile_var_dec() {
+        
+
+        string kind = t->peek();
+        if (kind != "var") {
+            return false;
+        } 
+        t->advance();
+
+        string type = t->peek();
+        if (!compile_type()) return false;
+
+        string name = t->peek();
+        if (!compile_identifier()) return false;
+
+        subroutine_table.define(name, type, kind);
+
+        while (t->peek() == ",") {
+            if (t->peek() != ",") {
+                return false;
+            }
+            t->advance();
+
+            name = t->peek();
+            if (!compile_identifier()) return false;
+
+            subroutine_table.define(name, type, kind);
+        }
+
+        if (t->peek() != ";") return false;
+        t->advance();
+
+        
+        return true;
+    }
+
+    bool compile_identifier() {
+        if (!regex_match(t->peek(), IDENTIFIER)) {
+            return false;
+        }
+
+        t->advance();
+
+        return true;
+    }
+
+    bool compile_type() {
+        if (
+            t->peek() == "int" ||
+            t->peek() == "char" ||
+            t->peek() == "boolean")
+        {
+            t->advance();
+            return true;
+        }
+
+        if (!compile_identifier()) return false;
+
         return true;
     }
 
@@ -421,200 +647,75 @@ private:
         return true;
     }
 
-    bool compile_term() {
-        open_xml_tag("term");
-
-        if (regex_match(t->peek(), INTEGER_CONSTANT)) {
-            write_xml("integerConstant");
-        } else if (t->peek() == "\"") {
-            t->advance();
-            if (!(regex_match(t->peek(), STRING_CONSTANT))) return false;
-            write_xml("stringConstant");
-            if (t->peek() != "\"") return false;
-            t->advance();
-        } else if (regex_match(t->peek(), KEYWORD_CONSTANT)) {
-            write_xml("keyword");
-        } else if (regex_match(t->peek(), UNARY_OP)) {
-            write_xml("symbol");
-            if (!compile_term()) return false;
-        } else if (t->peek() == "(") {
-            if (t->peek() != "(") return false;
-            write_xml("symbol");
-
-            if (!compile_expression()) return false;
-
-            if (t->peek() != ")") return false;
-            write_xml("symbol");
-        } else {
-            if (t->look_ahead(1) == "(" || t->look_ahead(1) == ".") {
-                if (!compile_subroutine_call()) return false;
-            } else {
-                if (!compile_identifier()) return false;
-
-                if (t->peek() == "[") {
-                    if (t->peek() != "[") return false;
-                    write_xml("symbol");
-
-                    if (!compile_expression()) return false;
-
-                    if (t->peek() != "]") return false;
-                    write_xml("symbol");
-                }
-            }
-        }
-
-        close_xml_tag("term");
-        return true;
-    }
-
-    bool compile_op() {
-        if (!(regex_match(t->peek(), OP))) return false;
-        write_xml("symbol");
-
-        return true;
-    }
-
-    bool compile_subroutine_call() {
-        if (!compile_identifier()) return false;
-
-        if (t->peek() == ".") {
-            if (t->peek() != ".") return false;
-            write_xml("symbol");
-
-            if (!compile_identifier()) return false;
-        }
-
-        if (t->peek() != "(") return false;
-        write_xml("symbol");
-
-        if (!compile_expression_list()) return false;
-
-        if (t->peek() != ")") return false;
-        write_xml("symbol");
-
-        return true;
-    }
-
-    bool compile_var_dec() {
-        open_xml_tag("varDec");
-
-        string kind = t->peek();
-        if (kind != "var") {
-            return false;
-        } 
-        write_xml("keyword");
-
-        string type = t->peek();
-        if (!compile_type()) return false;
-
-        string name = t->peek();
-        if (!compile_identifier()) return false;
-
-        subroutine_table.define(name, type, kind);
-
-        while (t->peek() == ",") {
-            if (t->peek() != ",") {
-                return false;
-            }
-            write_xml("symbol");
-
-            name = t->peek();
-            if (!compile_identifier()) return false;
-
-            subroutine_table.define(name, type, kind);
-        }
-
-        if (t->peek() != ";") return false;
-        write_xml("symbol");
-
-        close_xml_tag("varDec");
-        return true;
-    }
-
-    bool compile_identifier() {
-        if (!regex_match(t->peek(), IDENTIFIER)) {
-            return false;
-        }
-
-        string name = t->peek();
-        if (writing_enabled) {
-            if (subroutine_table.contains(name)) {
-                cout << "Found identifier in method level table: " << endl;
-                cout << name << endl;
-                cout << subroutine_table.type_of(name) << endl;
-                cout << subroutine_table.kind_of(name) << endl;
-            } else if (class_table.contains(name)) {
-                cout << "Found identifier in class level table: " << endl;
-                cout << name << endl;
-                cout << subroutine_table.type_of(name) << endl;
-                cout << subroutine_table.kind_of(name) << endl;
-            }
-        }
-
-        write_xml("identifier");
-
-        return true;
-    }
-
-    bool compile_type() {
-        if (
-            t->peek() == "int" ||
-            t->peek() == "char" ||
-            t->peek() == "boolean")
-        {
-            write_xml("keyword");
-            return true;
-        }
-
-        if (!compile_identifier()) return false;
-
-        return true;
-    }
 
     // WRITE VM CODE
 
     void write_function(string name, int n_locals) {
-        output << "function " << class_name << '.' << name << " " << to_string(n_locals) << '\n';
-    }
-
-
-    // HELPER METHODS
-
-    void inc_indent() {
-        indent += "  ";
-    }
-
-    void dec_indent() {
-        indent = indent.substr(0, indent.size() - 2);
-    }
-
-    void write_xml(string tag, bool advance = true) {
-        string token = t->peek();
-
-        if (XML_SYMBOLS.find(token) != XML_SYMBOLS.end()) {
-            token = XML_SYMBOLS.at(token);
-        }
-
-        
         if (writing_enabled) {
-            // output << indent << "<" << tag << "> " << token << " </" << tag << ">\n";
+            output << "function " << class_name << '.' << name << " " << to_string(n_locals) << '\n';
         }
-        if (advance) t->advance();
     }
 
-    void open_xml_tag(string tag, bool increase_indent = true) {
+    void write_push(string segment, string index) {
         if (writing_enabled) {
-            // output << indent << "<" << tag << ">\n";
+            output << "push " << segment << " " << index << '\n';
         }
-        if (increase_indent && writing_enabled) inc_indent();
     }
 
-    void close_xml_tag(string tag, bool decrease_indent = true) {
-        if (decrease_indent && writing_enabled) dec_indent();
+    void write_pop(string segment, string index) {
         if (writing_enabled) {
-            // output << indent << "</" << tag << ">\n";
+            output << "pop " << segment << " " << index << '\n';
         }
     }
+
+    void write_op(string op) {
+        if (writing_enabled) {
+            if (OP_TO_VM.find(op) != OP_TO_VM.end()) {
+                output << OP_TO_VM.at(op) << '\n';
+            } else if (op == "*") {
+                write_call("Math.multiply", 2);
+            } else if (op == "/") {
+                write_call("Math.divide", 2);
+            } else {
+                cout << "Operation '" << op << "' not recognized." << endl;
+            }
+        }
+    }
+
+    void write_unary_op(string op) {
+        if (writing_enabled) {
+            if (UNARY_OP_TO_VM.find(op) != UNARY_OP_TO_VM.end()) {
+                output << UNARY_OP_TO_VM.at(op) << '\n';
+            } else {
+                cout << "Unary operation '" << op << "' not recognized." << endl;
+            }
+        }
+    }
+
+    void write_call(string name, int n_args) {
+        output << "call " << name << " " << to_string(n_args) << '\n';
+    }
+
+    void write_return() {
+        output << "return" << "\n";
+    }
+
+    void write_label(string label) {
+        output << "label " << label << endl;
+    }
+
+    void write_if(string label) {
+        output << "if-goto " << label << endl;
+    }
+
+    void write_goto(string label) {
+        output << "goto " << label << endl;
+    }
+
+    void write(string command) {
+        output << command << '\n';
+    }
+
 };
 
 
