@@ -253,7 +253,6 @@ private:
         }
         else if (t->peek() == "do") {
             if (!compile_do_statement()) return false;
-            write_pop("temp", "0");
         }
         else if (t->peek() == "return") {
             if (!compile_return_statement()) return false;
@@ -426,6 +425,8 @@ private:
         if (t->peek() != ";") return false;
         t->advance();
 
+        write_pop("temp", "0");
+
         return true;
     }
 
@@ -580,15 +581,18 @@ private:
 
         string subroutine_name = t->peek();
         if (!compile_identifier()) return false;
+        string index;
 
         if (t->peek() == ".") {
             if (t->peek() != ".") return false;
             t->advance();
 
             if (subroutine_table.contains(subroutine_name)) {
+                index = to_string(subroutine_table.index_of(subroutine_name));
                 subroutine_name = subroutine_table.type_of(subroutine_name);
                 is_other_method_local = true;
             } else if (class_table.contains(subroutine_name)) {
+                index = to_string(class_table.index_of(subroutine_name));
                 subroutine_name = class_table.type_of(subroutine_name);
                 is_other_method_field = true;
             }
@@ -600,25 +604,26 @@ private:
             is_method = true;
         }
 
+        n_args_count = 0;
+        if (is_method) {
+            write_push("pointer", "0");
+            n_args_count++;
+        } else if (is_other_method_local) {
+            write_push("local", index); // todo
+            n_args_count++;
+        } else if (is_other_method_field) {
+            write_push("this", index); // todo
+            n_args_count++;
+        }
+
         if (t->peek() != "(") return false;
         t->advance();
 
-        n_args_count = 0;
         if (!compile_expression_list()) return false;
 
         if (t->peek() != ")") return false;
         t->advance();
 
-        if (is_method) {
-            write_push("pointer", "0");
-            n_args_count++;
-        } else if (is_other_method_local) {
-            write_push("local", "0");
-            n_args_count++;
-        } else if (is_other_method_field) {
-            write_push("this", "0");
-            n_args_count++;
-        }
         write_call(subroutine_name, n_args_count);
 
         return true;
