@@ -95,4 +95,11 @@ static const unordered_map<string, string> UNARY_OP_TO_VM = {
     {"~", "not"},
 };
 
+static const unordered_map<string, string> KIND_TO_SEGMENT = {
+    {"static", "static"},
+    {"field", "this"},
+    {"arg", "argument"},
+    {"var", "local"},
+};
+
 #endif // CONSTANTS_H
