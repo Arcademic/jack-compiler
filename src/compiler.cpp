@@ -243,18 +243,7 @@ private:
 
     bool compile_statement() {
         if (t->peek() == "let") {
-            string var_name = t->look_ahead(1);
             if (!compile_let_statement()) return false;
-            string segment;
-            if (subroutine_table.contains(var_name)) {
-                segment = KIND_TO_SEGMENT.at(subroutine_table.kind_of(var_name));
-                write_pop(segment, to_string(subroutine_table.index_of(var_name)));
-            } else if (class_table.contains(var_name)) {
-                segment = KIND_TO_SEGMENT.at(class_table.kind_of(var_name));
-                write_pop(segment, to_string(class_table.index_of(var_name)));
-            } else {
-                cout << "Identifier '" << var_name << "' not recognized." << endl;
-            }
         }
         else if (t->peek() == "if") {
             if (!compile_if_statement()) return false;
@@ -276,18 +265,38 @@ private:
     }
 
     bool compile_let_statement() {
-        
+        bool is_array = false;
 
         if (t->peek() != "let") return false;
         t->advance();
 
+        string var_name = t->peek();
         if (!compile_identifier()) return false;
+        string var_kind;
+        string var_index;
+        string segment;
+        if (subroutine_table.contains(var_name)) {
+            var_kind = subroutine_table.kind_of(var_name);
+            var_index = to_string(subroutine_table.index_of(var_name));
+            segment = KIND_TO_SEGMENT.at(var_kind);
+        } else if (class_table.contains(var_name)) {
+            var_kind = class_table.kind_of(var_name);
+            var_index = to_string(class_table.index_of(var_name));
+            segment = KIND_TO_SEGMENT.at(var_kind);
+        } else {
+            cout << "Identifier '" << var_name << "' not recognized." << endl;
+        }
 
         if (t->peek() == "[") {
+            is_array = true;
+
             if (t->peek() != "[") return false;
             t->advance();
 
             if (!compile_expression()) return false;
+
+            write_push(segment, var_index);
+            write("add");
 
             if (t->peek() != "]") return false;
             t->advance();
@@ -301,6 +310,14 @@ private:
         if (t->peek() != ";") return false;
         t->advance();
 
+        if (is_array) {
+            write_pop("temp", "0");
+            write_pop("pointer", "1");
+            write_push("temp", "0");
+            write_pop("that", "0");
+        } else {
+            write_pop(segment, var_index);
+        }
         
         return true;
     }
@@ -458,7 +475,6 @@ private:
 
             write_op(op);
         }
-
         
         return true;
     }
@@ -471,13 +487,18 @@ private:
             write_push("constant", integer_constant);
         } else if (t->peek() == "\"") {
             t->advance();
-            if (!(regex_match(t->peek(), STRING_CONSTANT))) return false;
+            string str_constant = t->peek();
+            if (!(regex_match(str_constant, STRING_CONSTANT))) return false;
+
+            write_string(str_constant);
             t->advance();
+
             if (t->peek() != "\"") return false;
             t->advance();
         } else if (regex_match(t->peek(), KEYWORD_CONSTANT)) {
             string keyword = t->peek();
             t->advance();
+
             if (keyword == "true") {
                 write_push("constant", "0");
                 write("not");
@@ -509,13 +530,19 @@ private:
             } else {
                 string var_name = t->peek();
                 if (!compile_identifier()) return false;
+                string var_kind;
+                string var_index;
                 string segment;
                 if (subroutine_table.contains(var_name)) {
-                    segment = KIND_TO_SEGMENT.at(subroutine_table.kind_of(var_name));
-                    write_push(segment, to_string(subroutine_table.index_of(var_name)));
+                    var_kind = subroutine_table.kind_of(var_name);
+                    var_index = to_string(subroutine_table.index_of(var_name));
+                    segment = KIND_TO_SEGMENT.at(var_kind);
+                    write_push(segment, var_index);
                 } else if (class_table.contains(var_name)) {
-                    segment = KIND_TO_SEGMENT.at(class_table.kind_of(var_name));
-                    write_push(segment, to_string(class_table.index_of(var_name)));
+                    var_kind = class_table.kind_of(var_name);
+                    var_index = to_string(class_table.index_of(var_name));
+                    segment = KIND_TO_SEGMENT.at(var_kind);
+                    write_push(segment, var_index);
                 } else {
                     cout << "Identifier '" << var_name << "' not recognized." << endl;
                 }
@@ -528,6 +555,10 @@ private:
 
                     if (t->peek() != "]") return false;
                     t->advance();
+
+                    write("add");
+                    write_pop("pointer", "1");
+                    write_push("that", "0");
                 }
             }
         }
@@ -739,6 +770,17 @@ private:
     void write_goto(string label) {
         if (writing_enabled) {
             output << "goto " << label << endl;
+        }
+    }
+
+    void write_string(string string_constant) {
+        if (writing_enabled) {
+            write_push("constant", to_string(string_constant.length()));
+            write_call("String.new", 1);
+            for (char c : string_constant) {
+                write_push("constant", to_string(static_cast<int>(c)));
+                write_call("String.appendChar", 2);
+            }
         }
     }
 
